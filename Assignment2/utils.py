@@ -22,92 +22,21 @@ def normalizationMatrix(x):
     #--------------------------------------------------------------
     
     # Get centroid and mean-distance to centroid
-    centroid = np.mean(x2d, 2)
-    meanDist = np.mean(np.sqrt(np.sum(x2d - np.title(centroid, np.block(1,n))) ** 2))
-    T = np.block([[np.sqrt(2) / meanDist, 0, np.dot(- centroid(1), np.sqrt(2)) / meanDist], [0, np.sqrt(2) / meanDist, np.dot(- centroid(2), np.sqrt(2)) / meanDist], [0, 0, 1]])
+    # centroid = np.mean(x2d, 2)
+    # meanDist = np.mean(np.sqrt(np.sum(x2d - np.title(centroid, np.block(1,n))) ** 2))
+    # T = np.block([[np.sqrt(2) / meanDist, 0, np.dot(- centroid(1), np.sqrt(2)) / meanDist], [0, np.sqrt(2) / meanDist, np.dot(- centroid(2), np.sqrt(2)) / meanDist], [0, 0, 1]])
+
+    centroid = np.mean(x2d, axis=-1)
+    x2d = x2d - np.expand_dims(centroid, axis=-1)
+    distance = np.sqrt(np.sum(np.square(x2d), axis=0))
+    RMS = np.mean(distance)
+    scaling_factor = np.sqrt(2.0) / RMS
+
+    T = np.diag([scaling_factor, scaling_factor, 1])
+    T[0, 2] = scaling_factor * (-centroid[0])
+    T[1, 2] = scaling_factor * (-centroid[1])
     
     return T
-
-# def eightPointsAlgorithm(x1,x2):
-#     """ Computes the fundamental matrix from corresponding points
-#     (x1,x2 3*n arrays) using the normalized 8 point algorithm.
-#     each row is constructed as
-#     [x’*x, x’*y, x’, y’*x, y’*y, y’, x, y, 1] """
-#     n = x1.shape[1]
-#     if x2.shape[1] != n:
-#         raise ValueError("Number of points don’t match.")
-#     # build matrix for equations
-#     A = np.zeros((n,9))
-#     for i in range(n):
-#         A[i] = [x1[0,i]*x2[0,i], x1[0,i]*x2[1,i], x1[0,i]*x2[2,i],
-#                 x1[1,i]*x2[0,i], x1[1,i]*x2[1,i], x1[1,i]*x2[2,i],
-#                 x1[2,i]*x2[0,i], x1[2,i]*x2[1,i], x1[2,i]*x2[2,i] ]
-#     # compute linear least square solution
-#     U,S,V = np.linalg.svd(A)
-#     F = V[-1].reshape(3,3)
-#     # constrain F
-#     # make rank 2 by zeroing out last singular value
-#     U,S,V = np.linalg.svd(F)
-#     S[2] = 0
-#     F = np.dot(U, np.dot(np.diag(S),V))
-
-#     return F
-
-# def eightPointsAlgorithm(p1, p2):
-#     """
-#     Calculates the fundamental matrix between two views using the normalized 8 point algorithm
-#     Inputs: 
-#                     x1      3xN     homogeneous coordinates of matched points in view 1
-#                     x2      3xN     homogeneous coordinates of matched points in view 2
-#     Outputs:
-#                     F       3x3     fundamental matrix
-#     """
-#     N = p1.shape[1]
-
-#     # Construct transformation matrices to normalize the coordinates
-#     p1 = np.copy(p1)
-#     n1 = p1.shape[1]
-#     p1 = np.resize(p1, (3, n1))
-#     p1[2,:] = 1
-#     p1 = np.matrix(p1)
-    
-#     p2 = np.copy(p2)
-#     n2 = p2.shape[1]
-#     p2 = np.resize(p2, (3, n2))
-#     p2[2,:] = 1
-#     p2 = np.matrix(p2)
-    
-#     # Normalize inputs
-#     m = np.mean(p1,1)
-#     d = np.mean(np.sqrt(np.sum(np.power(p1,2),1))) # mean distance
-#     s = np.sqrt(2) # want points to have mean distance sqrt(2)
-#     T1 = np.matrix(np.diag([s/d,s/d,1]))*np.matrix([[1,0,-m[0]],[0,1,-m[1]],[0,0,1]])
-#     p1 = T1*p1 # apply transformation
-    
-#     m = np.mean(p2,1)
-#     d = np.mean(np.sqrt(np.sum(np.power(p2,2),1))) # mean distance
-#     s = np.sqrt(2) # want points to have mean distance sqrt(2)
-#     T2 = np.matrix(np.diag([s/d,s/d,1]))*np.matrix([[1,0,-m[0]],[0,1,-m[1]],[0,0,1]])
-#     p2 = T2*p2 # apply transformation
-    
-#     # Construct matrix A encoding the constraints on x1 and x2
-#     x1, y1 = np.array(p1[0,:].T), np.array(p1[1,:].T)
-#     x2, y2 = np.array(p2[0,:].T), np.array(p2[1,:].T)
-#     A = np.hstack((x1*x2, y1*x2, x2, x1*y2, y1*y2, y2, x1, y1, np.ones((N,1))))
-
-#     U,s,Vt = sp.linalg.svd(np.matrix(A))
-#     F = Vt[-1,:].T.reshape((3,3))
-
-#     # Solve for f using SVD
-#     U,s,Vt = sp.linalg.svd(F)
-    
-#     # Enforce that rank(F)=2
-#     F = np.matrix(U)*np.matrix(np.diag([s[0],s[1],0]))*np.matrix(Vt)
-    
-#     # Transform F back
-#     F = np.dot(U, np.dot(np.diag(s),Vt))
-    
-#     return F
 
 def eightPointsAlgorithm(x1, x2):
     """
@@ -120,13 +49,20 @@ def eightPointsAlgorithm(x1, x2):
     """
     N = x1.shape[1]
 
+    # Construct transformation matrices to normalize the coordinates
+    T1 = normalizationMatrix(x1)
+    T2 = normalizationMatrix(x2)
+
+    # Normalize inputs
+    x1normalized = np.dot(T1, x1)
+    x2Normalized = np.dot(T2, x2)
     
     # Construct matrix A encoding the constraints on x1 and x2
     A = np.zeros((N,9))
     for i in range(N):
-        A[i] = [x1[0,i]*x2[0,i], x1[0,i]*x2[1,i], x1[0,i]*x2[2,i],
-                x1[1,i]*x2[0,i], x1[1,i]*x2[1,i], x1[1,i]*x2[2,i],
-                x1[2,i]*x2[0,i], x1[2,i]*x2[1,i], x1[2,i]*x2[2,i] ]
+        A[i] = [x1[0, i] * x2[0, i], x1[0, i] * x2[1, i], x1[0, i] * x2[2, i],
+                x1[1, i] * x2[0, i], x1[1, i] * x2[1, i], x1[1, i] * x2[2, i],
+                x1[2, i] * x2[0, i], x1[2, i] * x2[1, i], x1[2, i] * x2[2, i]]
 
     # compute linear least square solution
     U,S,V = np.linalg.svd(A)
@@ -139,7 +75,7 @@ def eightPointsAlgorithm(x1, x2):
     S[2] = 0
     
     # Transform F back
-    F = np.dot(U, np.dot(np.diag(S),V))
+    F = np.dot(U, np.dot(np.diag(S), V))
     
     return F
 
@@ -167,19 +103,16 @@ def plot_epipolar_line(im, F, x, e):
 
     m, n = im.shape[:2]
     line = np.dot(F, x)
-    # epipolar line parameter and values
 
     t = np.linspace(0, n, 100)
-
-    lt = np.array(
-        [(line[2]+line[0]*tt)/(-line[1]) for tt in t]
-    )
-    # take only line points inside the image
-    ndx = (lt>=0) & (lt<m)
+    lt = np.array([(line[2]+line[0]*tt)/(-line[1]) for tt in t])
+    ndx = (lt >= 0) & (lt < m)
     plt.plot(t[ndx], lt[ndx], linewidth=2)
+
     if e is None:
         e = right_epipole(F)
-    plt.plot(e[0]/e[2], e[1]/e[2], 'b*')
+
+    #plt.plot(e[0]/e[2], e[1]/e[2], 'b*')
     
 
 def decomposeE(E, x1, x2):
