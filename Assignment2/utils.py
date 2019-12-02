@@ -127,17 +127,47 @@ def decomposeE(E, x1, x2):
     Pl = np.concatenate((Rl, tl), axis=1)
 
     # TODO: Compute possible rotations and translations
+
+    # U,S,V = np.linalg.svd(E)
+    
+    # if (abs(S[1,1] - S[2,2]) > 0.01 or S[3,3] != 0):
+    #     S = np.diag(np.concatenate([1,1,0]))
+    
+    # W = np.concatenate([[0, - 1, 0], [1, 0, 0], [0, 0, 1]])
+    # T = np.dot(np.dot(np.dot(U, S), W), U.T)
+    # R1 = np.dot(np.dot(U, W.T), V.T)
+    # R2 = np.dot(np.dot(U, W), V.T)
+    # t1 = np.concatenate([[T(3, 2)], [T(1, 3)], [T(2, 1)]])
+    # t2 = -t1
+
+
     U,S,V = np.linalg.svd(E)
-    
-    if (abs(S[1,1] - S[2,2]) > 0.01 or S[3,3] != 0):
-        S = np.diag(np.concatenate([1,1,0]))
-    
-    W = np.concatenate([[0, - 1, 0], [1, 0, 0], [0, 0, 1]])
+    S = np.diag(S)
+
+    #Check if E is valid essential matrix
+    if(np.abs(S[0,0]-S[1,1])>0.01 or S[2,2] != 0): 
+        S = np.diag([1,1,0])  # enforce if not
+
+    #Compute possible rorations and translations
+    W = np.array([[0, -1, 0],[1,  0, 0],[0,  0, 1]])
     T = np.dot(np.dot(np.dot(U, S), W), U.T)
     R1 = np.dot(np.dot(U, W.T), V.T)
     R2 = np.dot(np.dot(U, W), V.T)
-    t1 = np.concatenate([[T(3, 2)], [T(1, 3)], [T(2, 1)]])
+    t1 = np.array([[T[2,1]],[T[0,2]],[T[1,0]]])
     t2 = -t1
+    
+    # if (abs(S[1,1] - S[2,2]) > 0.01 or S[3,3] != 0):
+    #     S = np.diag(np.concatenate([1,1,0]))
+    
+    # W = np.concatenate([[0, - 1, 0], [1, 0, 0], [0, 0, 1]])
+    # T = np.dot(np.dot(np.dot(U, S), W), U.T)
+    # R1 = np.dot(np.dot(U, W.T), V.T)
+    # R2 = np.dot(np.dot(U, W), V.T)
+    # t1 = np.concatenate([[T(3, 2)], [T(1, 3)], [T(2, 1)]])
+    # t2 = -t1
+
+
+
 
     # End of your code
     
